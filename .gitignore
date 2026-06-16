@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.env
 data/orders/
 storage/uploads/
 storage/ingest_index.json
