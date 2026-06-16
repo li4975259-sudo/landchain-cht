@@ -1,0 +1,122 @@
+[
+  {
+    "query": "O0001 买了什么",
+    "expected_sources": ["order"],
+    "expected_keywords": ["O0001"],
+    "category": "keyword_id"
+  },
+  {
+    "query": "订单 O0001 的客户是谁",
+    "expected_sources": ["order"],
+    "expected_keywords": ["O0001"],
+    "category": "keyword_id"
+  },
+  {
+    "query": "LandChain 支持哪些文档格式",
+    "expected_sources": [],
+    "expected_keywords": ["pdf", "txt", "md"],
+    "category": "semantic_paraphrase"
+  },
+  {
+    "query": "能上传啥类型的文件",
+    "expected_sources": [],
+    "expected_keywords": ["pdf", "txt", "md"],
+    "category": "semantic_paraphrase"
+  },
+  {
+    "query": "知识库 chunk 大小是多少",
+    "expected_sources": [],
+    "expected_keywords": ["800"],
+    "category": "semantic_paraphrase"
+  },
+  {
+    "query": "检索时候选数量默认多少",
+    "expected_sources": [],
+    "expected_keywords": ["24", "12"],
+    "category": "cross_chunk"
+  },
+  {
+    "query": "重排序用的什么模型",
+    "expected_sources": [],
+    "expected_keywords": ["rerank", "bge"],
+    "category": "cross_chunk"
+  },
+  {
+    "query": "PostgreSQL 业务库连接配置",
+    "expected_sources": [],
+    "expected_keywords": ["postgres", "POSTGRES"],
+    "category": "cross_chunk"
+  },
+  {
+    "query": "Agent 工具 search_knowledge_base 做什么",
+    "expected_sources": [],
+    "expected_keywords": ["search_knowledge_base", "知识库"],
+    "category": "semantic_paraphrase"
+  },
+  {
+    "query": "向量数据库用的什么",
+    "expected_sources": [],
+    "expected_keywords": ["Qdrant", "qdrant"],
+    "category": "keyword_id"
+  },
+  {
+    "query": "闲聊问题会走向量检索吗",
+    "expected_sources": [],
+    "expected_keywords": ["chitchat", "闲聊"],
+    "category": "noise_filter"
+  },
+  {
+    "query": "今天天气怎么样",
+    "expected_sources": [],
+    "expected_keywords": [],
+    "category": "noise_filter"
+  },
+  {
+    "query": "embedding 模型是什么",
+    "expected_sources": [],
+    "expected_keywords": ["bge-m3", "bge"],
+    "category": "keyword_id"
+  },
+  {
+    "query": "怎么把订单报告导入知识库",
+    "expected_sources": ["order"],
+    "expected_keywords": ["sync_orders_to_rag"],
+    "category": "cross_chunk"
+  },
+  {
+    "query": "RAG 检索流程是怎样的",
+    "expected_sources": [],
+    "expected_keywords": ["rerank", "检索", "向量"],
+    "category": "cross_chunk"
+  },
+  {
+    "query": "chunk overlap 默认多少",
+    "expected_sources": [],
+    "expected_keywords": ["120"],
+    "category": "semantic_paraphrase"
+  },
+  {
+    "query": "超级智能体有哪些能力",
+    "expected_sources": [],
+    "expected_keywords": ["Agent", "search_knowledge_base"],
+    "category": "cross_chunk"
+  },
+  {
+    "query": "QDRANT_COLLECTION 默认值",
+    "expected_sources": [],
+    "expected_keywords": ["landchain_rag_v2"],
+    "category": "keyword_id"
+  },
+  {
+    "query": "上传文件大小限制",
+    "expected_sources": [],
+    "expected_keywords": ["20", "MB"],
+    "category": "semantic_paraphrase"
+  },
+  {
+    "query": "多轮对话短追问如何构造检索 query",
+    "expected_sources": [],
+    "expected_keywords": ["30", "拼接"],
+    "category": "cross_chunk"
+  }
+]

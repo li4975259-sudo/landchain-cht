@@ -1,0 +1,45 @@
+tasks:
+  daily_uv:
+    description: 统计指定日期的 UV、PV（页面访问量）
+    category: stats
+    script: scripts/tasks/daily_uv.py
+    params:
+      date:
+        type: date
+        required: true
+        description: 统计日期，ISO-8601 或 today/yesterday
+    output_mode: json
+    timeout: 60
+
+  daily_orders:
+    description: 统计指定日期的订单数与销售额
+    category: stats
+    script: scripts/tasks/daily_orders.py
+    params:
+      date:
+        type: date
+        required: true
+    output_mode: json
+    timeout: 60
+
+  announcement_visitors:
+    description: 统计指定日期访问公告的用户列表与人数（需 announcement_views 集合或自定义脚本）
+    category: stats
+    script: scripts/tasks/daily_uv.py
+    params:
+      date:
+        type: date
+        required: true
+    output_mode: json
+    timeout: 60
+
+  daily_attendance:
+    description: 计算指定日期的员工考勤汇总（需 attendance 集合或自定义脚本）
+    category: hr
+    script: scripts/tasks/daily_orders.py
+    params:
+      date:
+        type: date
+        required: true
+    output_mode: json
+    timeout: 60

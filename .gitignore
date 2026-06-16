@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+data/orders/
+storage/uploads/
+storage/ingest_index.json
+storage/sessions.db
+storage/hf_cache/
+.pytest_cache/
+.mypy_cache/
+.idea/
+.vscode/
