@@ -58,6 +58,8 @@ class Settings(BaseSettings):
 
     chitchat_direct_enabled: bool = True
     chitchat_max_length: int = 24
+    public_api_key: str = ""
+    public_api_key_header: str = "X-API-Key"
 
     allowed_extensions: frozenset[str] = frozenset({".pdf", ".txt", ".md"})
 
@@ -69,7 +71,7 @@ class Settings(BaseSettings):
     agent_tool_result_max_chars: int = 12000
     ollama_agent_model: str = ""
     ollama_agent_fallback_model: str = "qwen2.5:14b"
-    agent_shell_enabled: bool = True
+    agent_shell_enabled: bool = False
     agent_shell_mode: str = "allowlist"
     agent_shell_timeout: int = 30
     agent_shell_cwd: Path = Path("./")
@@ -78,6 +80,7 @@ class Settings(BaseSettings):
     agent_hitl_enabled: bool = True
     agent_hitl_timeout: int = 300
     agent_api_key: str = ""
+    agent_require_api_key: bool = True
     agent_summarize_after_messages: int = 30
     agent_tasks_path: Path = Path("./storage/agent_tasks.yaml")
     agent_task_timeout: int = 60

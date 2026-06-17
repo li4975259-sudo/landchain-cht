@@ -27,8 +27,18 @@ def _resolve_session_id(session_id: str | None) -> str:
 
 def _check_agent_auth(request: Request, x_agent_key: str | None) -> None:
     settings = request.app.state.settings
+    if settings.agent_require_api_key and not settings.agent_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Agent API key is not configured",
+        )
     if settings.agent_api_key and x_agent_key != settings.agent_api_key:
         raise HTTPException(status_code=401, detail="Invalid or missing X-Agent-Key")
+
+
+def _resolve_actor(resolved_by: str | None) -> str:
+    actor = (resolved_by or "user").strip()
+    return actor or "user"
 
 
 def _sse_event(event: str, data: dict) -> str:
@@ -138,7 +148,11 @@ async def approve_shell(
     x_agent_key: str | None = Header(default=None, alias="X-Agent-Key"),
 ) -> ApprovalResponse:
     _check_agent_auth(request, x_agent_key)
-    result = request.app.state.agent_service.approve_shell(approval_id, approved=True)
+    result = request.app.state.agent_service.approve_shell(
+        approval_id,
+        approved=True,
+        resolved_by=_resolve_actor(body.resolved_by),
+    )
     return ApprovalResponse(
         status=result["status"],
         approval_id=approval_id,
@@ -154,7 +168,11 @@ async def reject_shell(
     x_agent_key: str | None = Header(default=None, alias="X-Agent-Key"),
 ) -> ApprovalResponse:
     _check_agent_auth(request, x_agent_key)
-    result = request.app.state.agent_service.approve_shell(approval_id, approved=False)
+    result = request.app.state.agent_service.approve_shell(
+        approval_id,
+        approved=False,
+        resolved_by=_resolve_actor(body.resolved_by),
+    )
     return ApprovalResponse(status=result["status"], approval_id=approval_id)
 
 

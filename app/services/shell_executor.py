@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
 import time
 from pathlib import Path
@@ -12,6 +13,7 @@ BLOCKED_PATTERNS = [
     re.compile(r"\.\./"),
     re.compile(r"/etc/", re.I),
     re.compile(r"system32", re.I),
+    re.compile(r"&&|\|\||;|`|>|<"),
 ]
 
 
@@ -50,13 +52,16 @@ class ShellExecutor:
 
         self._check_blocked(command)
         self._check_allowlist(command)
+        cmd_args = shlex.split(command, posix=True)
+        if not cmd_args:
+            raise ValueError("Empty command")
 
         cwd = self._resolve_cwd()
         start = time.perf_counter()
         try:
             completed = subprocess.run(
-                command,
-                shell=True,
+                cmd_args,
+                shell=False,
                 cwd=str(cwd),
                 capture_output=True,
                 text=True,
