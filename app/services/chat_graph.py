@@ -1,4 +1,6 @@
+import logging
 import sqlite3
+import time
 from collections.abc import Iterator
 from typing import Annotated, Literal, TypedDict
 
@@ -12,6 +14,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
 from app.config import Settings, get_settings
+from app.observability import get_request_id
 from app.services.intent import is_chitchat
 from app.services.retrieval import (
     RetrievalService,
@@ -19,6 +22,8 @@ from app.services.retrieval import (
     extract_sources,
     format_docs,
 )
+
+logger = logging.getLogger(__name__)
 
 RAG_SYSTEM_PROMPT = (
     "你是知识库助手。请结合对话历史与以下检索上下文回答用户问题。"
@@ -100,11 +105,19 @@ class ChatGraphService:
         messages: list[BaseMessage],
         config: RunnableConfig | None = None,
     ) -> dict:
+        start = time.perf_counter()
         top_k = None
         if config:
             top_k = config.get("configurable", {}).get("top_k")
         query = _retrieval_query(messages)
         docs = self.retrieval_service.retrieve(query, top_k=top_k)
+        logger.info(
+            "chat.retrieve.complete request_id=%s query_len=%s chunks=%s retrieval_ms=%s",
+            get_request_id(),
+            len(query),
+            len(docs),
+            int((time.perf_counter() - start) * 1000),
+        )
         return {
             "context": format_docs(docs),
             "sources": extract_sources(docs),
@@ -165,11 +178,20 @@ class ChatGraphService:
         message: str,
         top_k: int | None = None,
     ) -> dict:
+        start = time.perf_counter()
         result = self._graph.invoke(
             {"messages": [HumanMessage(content=message)]},
             config=self._config(session_id, top_k),
         )
         ai_message = result["messages"][-1]
+        logger.info(
+            "chat.query.complete request_id=%s session_id=%s mode=%s chunks=%s total_ms=%s",
+            get_request_id(),
+            session_id,
+            result.get("mode", "rag"),
+            result.get("chunks_used", 0),
+            int((time.perf_counter() - start) * 1000),
+        )
         return {
             "session_id": session_id,
             "answer": ai_message.content,
@@ -185,6 +207,7 @@ class ChatGraphService:
         message: str,
         top_k: int | None = None,
     ) -> tuple[Iterator[str], list[str], list[dict], int, str]:
+        stream_start = time.perf_counter()
         config = self._config(session_id, top_k)
         snapshot = self._graph.get_state(config)
         history = list(snapshot.values.get("messages", []))
@@ -214,7 +237,9 @@ class ChatGraphService:
 
         def wrapped_stream() -> Iterator[str]:
             full_answer = ""
+            token_count = 0
             for token in token_stream:
+                token_count += 1
                 full_answer += token
                 yield token
             self._graph.update_state(
@@ -226,6 +251,15 @@ class ChatGraphService:
                     ],
                     **retrieve_result,
                 },
+            )
+            logger.info(
+                "chat.stream.complete request_id=%s session_id=%s mode=%s chunks=%s tokens=%s total_ms=%s",
+                get_request_id(),
+                session_id,
+                mode,
+                retrieve_result.get("chunks_used", 0),
+                token_count,
+                int((time.perf_counter() - stream_start) * 1000),
             )
 
         return (

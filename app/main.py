@@ -13,10 +13,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 from app.agents.agent_service import AgentService
+from app.errors import install_exception_handlers
 
 from app.config import get_settings
 
+from app.observability import install_request_context_middleware
 from app.routers import agent, chat, documents, health, query
+from app.security import install_public_api_key_middleware
 
 from app.services.chat_graph import ChatGraphService
 
@@ -189,6 +192,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
 
     )
+    install_request_context_middleware(app)
+    install_public_api_key_middleware(app)
+    install_exception_handlers(app)
 
     app.include_router(health.router)
 

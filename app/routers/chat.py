@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 import uuid
 from collections.abc import AsyncIterator
 
@@ -12,8 +14,10 @@ from app.models.schemas import (
     SessionClearResponse,
 )
 from app.services.ollama_client import check_ollama_health
+from app.utils.async_bridge import iter_sync_in_thread, run_sync
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 async def _ensure_ollama(request: Request) -> None:
@@ -31,20 +35,32 @@ def _sse_event(event: str, data: dict) -> str:
 
 @router.post("", response_model=ChatResponse)
 async def chat(request: Request, body: ChatRequest) -> ChatResponse:
+    start = time.perf_counter()
+    request_id = getattr(request.state, "request_id", "-")
     await _ensure_ollama(request)
 
     session_id = _resolve_session_id(body.session_id)
     chat_service = request.app.state.chat_service
     try:
-        result = chat_service.chat(session_id, body.message, top_k=body.top_k)
+        result = await run_sync(chat_service.chat, session_id, body.message, top_k=body.top_k)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Chat failed: {exc}") from exc
 
+    logger.info(
+        "http.chat.complete request_id=%s session_id=%s mode=%s chunks=%s total_ms=%s",
+        request_id,
+        session_id,
+        result.get("mode"),
+        result.get("chunks_used"),
+        int((time.perf_counter() - start) * 1000),
+    )
     return ChatResponse(**result)
 
 
 @router.post("/stream")
 async def chat_stream(request: Request, body: ChatRequest) -> StreamingResponse:
+    request_start = time.perf_counter()
+    request_id = getattr(request.state, "request_id", "-")
     await _ensure_ollama(request)
 
     session_id = _resolve_session_id(body.session_id)
@@ -53,12 +69,13 @@ async def chat_stream(request: Request, body: ChatRequest) -> StreamingResponse:
     async def event_generator() -> AsyncIterator[str]:
         try:
             yield _sse_event("session", {"session_id": session_id})
-            token_stream, sources, citations, chunks_used, mode = chat_service.stream(
+            token_stream, sources, citations, chunks_used, mode = await run_sync(
+                chat_service.stream,
                 session_id,
                 body.message,
                 top_k=body.top_k,
             )
-            for token in token_stream:
+            async for token in iter_sync_in_thread(token_stream):
                 if token:
                     yield _sse_event("token", {"text": token})
             yield _sse_event(
@@ -70,6 +87,14 @@ async def chat_stream(request: Request, body: ChatRequest) -> StreamingResponse:
                     "chunks_used": chunks_used,
                     "mode": mode,
                 },
+            )
+            logger.info(
+                "http.chat_stream.complete request_id=%s session_id=%s mode=%s chunks=%s total_ms=%s",
+                request_id,
+                session_id,
+                mode,
+                chunks_used,
+                int((time.perf_counter() - request_start) * 1000),
             )
         except Exception as exc:
             yield _sse_event("error", {"message": str(exc)})
@@ -88,12 +113,12 @@ async def chat_stream(request: Request, body: ChatRequest) -> StreamingResponse:
 @router.get("/sessions/{session_id}/history", response_model=ChatHistoryResponse)
 async def get_chat_history(session_id: str, request: Request) -> ChatHistoryResponse:
     chat_service = request.app.state.chat_service
-    messages = chat_service.get_history(session_id)
+    messages = await run_sync(chat_service.get_history, session_id)
     return ChatHistoryResponse(session_id=session_id, messages=messages)
 
 
 @router.delete("/sessions/{session_id}", response_model=SessionClearResponse)
 async def clear_chat_session(session_id: str, request: Request) -> SessionClearResponse:
     chat_service = request.app.state.chat_service
-    chat_service.clear_session(session_id)
+    await run_sync(chat_service.clear_session, session_id)
     return SessionClearResponse(session_id=session_id, cleared=True)
