@@ -32,10 +32,25 @@ class AuditStore:
                     duration_ms INTEGER,
                     success INTEGER,
                     error TEXT,
+                    actor TEXT,
+                    source TEXT,
+                    result_summary TEXT,
+                    resolved_by TEXT,
                     created_at REAL NOT NULL
                 )
                 """
             )
+            # Backward-compatible migrations for existing DB files.
+            for column_sql in (
+                "ALTER TABLE agent_audit_log ADD COLUMN actor TEXT",
+                "ALTER TABLE agent_audit_log ADD COLUMN source TEXT",
+                "ALTER TABLE agent_audit_log ADD COLUMN result_summary TEXT",
+                "ALTER TABLE agent_audit_log ADD COLUMN resolved_by TEXT",
+            ):
+                try:
+                    conn.execute(column_sql)
+                except sqlite3.OperationalError:
+                    pass
             conn.commit()
 
     def log(
@@ -50,14 +65,18 @@ class AuditStore:
         duration_ms: int | None = None,
         success: bool = True,
         error: str | None = None,
+        actor: str = "system",
+        source: str = "agent",
+        result_summary: str | None = None,
+        resolved_by: str | None = None,
     ) -> None:
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT INTO agent_audit_log
                 (id, run_id, session_id, event_type, tool_name, input_json, output_preview,
-                 duration_ms, success, error, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 duration_ms, success, error, actor, source, result_summary, resolved_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(uuid.uuid4()),
@@ -70,6 +89,10 @@ class AuditStore:
                     duration_ms,
                     1 if success else 0,
                     error,
+                    actor,
+                    source,
+                    (result_summary or "")[:512],
+                    resolved_by,
                     time.time(),
                 ),
             )
@@ -80,7 +103,8 @@ class AuditStore:
             rows = conn.execute(
                 """
                 SELECT run_id, event_type, tool_name, input_json, output_preview,
-                       duration_ms, success, error, created_at
+                       duration_ms, success, error, actor, source, result_summary,
+                       resolved_by, created_at
                 FROM agent_audit_log
                 WHERE session_id = ?
                 ORDER BY created_at DESC

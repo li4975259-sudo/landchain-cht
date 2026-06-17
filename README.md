@@ -379,6 +379,30 @@ python scripts/sync_orders_to_rag.py --from ... --to ... --generate-only
 python scripts/seed_order_test_data.py --count 1000
 ```
 
+### 性能日志聚合（P50/P95）
+
+接口日志已包含 `http.*.complete ... total_ms=...` 字段，可用脚本聚合：
+
+```bash
+python scripts/perf_log_summary.py --log-file ./storage/app.log
+# 只统计最近窗口（依赖日志行时间戳）
+python scripts/perf_log_summary.py --log-file ./storage/app.log --since 2026-06-17T18:30:00
+# 只看 chat 事件
+python scripts/perf_log_summary.py --log-file ./storage/app.log --event-prefix http.chat
+```
+
+输出 CSV 列：`event,count,avg_ms,p50_ms,p95_ms,max_ms`。
+
+### 回归检查脚本
+
+```bash
+# 运行全量单测回归
+python scripts/regression_check.py
+
+# 回归 + 日志聚合解析校验
+python scripts/regression_check.py --log-file ./storage/app.log
+```
+
 ## 配置项（.env）
 
 | 变量 | 默认值 | 说明 |
@@ -407,6 +431,8 @@ python scripts/seed_order_test_data.py --count 1000
 | `SESSION_DB_PATH` | `./storage/sessions.db` | LangGraph 会话持久化 |
 | `MAX_UPLOAD_SIZE_MB` | `20` | 上传大小限制 |
 | `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | 允许跨域的前端地址（逗号分隔） |
+| `PUBLIC_API_KEY` | （空） | 为空则不校验；有值时 `/query` `/chat` `/documents` 需携带对应 API Key |
+| `PUBLIC_API_KEY_HEADER` | `X-API-Key` | 公共 API Key 请求头名称 |
 
 本地离线可用 `qwen3:8b`；中文向量检索更强可换 `qwen3-embedding:0.6b`（需清空向量库后重新导入文档）。
 
@@ -454,7 +480,10 @@ npm run build
 
 ## 注意事项
 
-- 本服务无鉴权，仅适合本地开发；生产环境请加 API Key 或反向代理
+- `/query`、`/chat` 等公开接口默认无鉴权，仅适合本地开发；生产环境请加 API Key 或反向代理
+- 可通过 `PUBLIC_API_KEY` + `PUBLIC_API_KEY_HEADER` 为 `/query` `/chat` `/documents` 开启统一 API Key 校验
+- Agent API 默认要求 `AGENT_API_KEY`（`AGENT_REQUIRE_API_KEY=true`），未配置时 Agent 路由会返回 503
+- Agent shell 执行默认关闭（`AGENT_SHELL_ENABLED=false`）；仅在明确受控环境下启用
 - Ollama 本地推理通常串行，高并发请求会排队
 - 上传同名文件会先删除旧 chunk 再写入，避免重复
 

@@ -444,11 +444,28 @@ class AgentService:
 
 
 
-    def approve_shell(self, approval_id: str, *, approved: bool) -> dict[str, Any]:
+    def approve_shell(
+        self, approval_id: str, *, approved: bool, resolved_by: str = "user"
+    ) -> dict[str, Any]:
 
-        record = self.approval_store.resolve(approval_id, approved=approved)
+        record = self.approval_store.resolve(
+            approval_id, approved=approved, resolved_by=resolved_by
+        )
 
         if not approved:
+            self.audit_store.log(
+                run_id=record["run_id"],
+                session_id=record["session_id"],
+                event_type="approval_resolved",
+                tool_name="run_shell_command",
+                input_json={"command": record["command"]},
+                output_preview="shell command rejected",
+                success=True,
+                actor="user",
+                source="approval",
+                result_summary="rejected",
+                resolved_by=resolved_by,
+            )
 
             return {"status": "rejected", "approval_id": approval_id}
 
@@ -471,6 +488,10 @@ class AgentService:
             duration_ms=result.get("duration_ms"),
 
             success=result.get("success", False),
+            actor="user",
+            source="approval",
+            result_summary=f"exit_code={result.get('exit_code')}",
+            resolved_by=resolved_by,
 
         )
 

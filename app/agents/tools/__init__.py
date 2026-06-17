@@ -109,6 +109,17 @@ def build_tools(
     run_id: str,
     pending_shell: dict[str, Any],
 ) -> list[StructuredTool]:
+    def _summarize_result(result: Any) -> str:
+        if isinstance(result, dict):
+            if "success" in result:
+                return f"success={result.get('success')}"
+            keys = ",".join(list(result.keys())[:5])
+            return f"dict_keys={keys}"
+        if isinstance(result, list):
+            return f"list_len={len(result)}"
+        text = str(result)
+        return text[:120]
+
     def _audit(tool_name: str, input_data: dict, fn):
         import time
 
@@ -125,6 +136,9 @@ def build_tools(
                 output_preview=out[:2000],
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 success=True,
+                actor="agent",
+                source="tool",
+                result_summary=_summarize_result(result),
             )
             return out if isinstance(result, str) else json.dumps(result, ensure_ascii=False)
         except Exception as exc:
@@ -138,6 +152,9 @@ def build_tools(
                 duration_ms=int((time.perf_counter() - start) * 1000),
                 success=False,
                 error=str(exc),
+                actor="agent",
+                source="tool",
+                result_summary="error",
             )
             return json.dumps(
                 {"success": False, "tool": tool_name, "error": str(exc)},
@@ -319,6 +336,18 @@ def build_tools(
         pending_shell["approval_id"] = approval["approval_id"]
         pending_shell["command"] = command
         pending_shell["reason"] = reason
+        audit_store.log(
+            run_id=run_id,
+            session_id=session_id,
+            event_type="approval_requested",
+            tool_name="run_shell_command",
+            input_json={"command": command, "reason": reason},
+            output_preview=f"approval_id={approval['approval_id']}",
+            success=True,
+            actor="agent",
+            source="approval",
+            result_summary="pending",
+        )
         return json.dumps(
             {
                 "status": "approval_required",
